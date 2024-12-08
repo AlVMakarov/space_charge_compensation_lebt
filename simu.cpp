@@ -138,13 +138,13 @@ void simu(int *argc, char ***argv)
 {
     srand((int)time(0));
 
-    double h = 5e-3;
+    double h = 1e-3;
     Vec3D origo(-70e-3,
                 -70e-3,
                 0.e-3);
     double sizereq[3] = {140e-3,
                          140e-3,
-                         2400e-3};
+                         700e-3};
     Int3D meshsize((int)floor(sizereq[0] / h) + 1,
                    (int)floor(sizereq[1] / h) + 1,
                    (int)floor(sizereq[2] / h) + 1);
@@ -178,8 +178,8 @@ void simu(int *argc, char ***argv)
     Инициализациия магнитных полей
     */
     bool fout[3] = {true, true, true};
-    field_extrpl_e bfldextrpl[6] = {FIELD_ZERO, FIELD_ZERO,
-                                    FIELD_ZERO, FIELD_ZERO,
+    field_extrpl_e bfldextrpl[6] = {FIELD_EXTRAPOLATE, FIELD_EXTRAPOLATE,
+                                    FIELD_EXTRAPOLATE, FIELD_EXTRAPOLATE,
                                     FIELD_ZERO, FIELD_ZERO};
 
     double bfield_step = 0.001;
@@ -188,8 +188,8 @@ void simu(int *argc, char ***argv)
                           (int)floor(sizereq[2] / bfield_step) + 1);
 
     MeshVectorField bfield(MODE_3D, fout, meshsize_bfield, origo, bfield_step);
-    MeshVectorField bfield1n(MODE_3D, fout, 1.0e-3, 12.0 / 16.0, bfieldfn_sol1);
-    MeshVectorField bfield2n(MODE_3D, fout, 1.0e-3, 12.0 / 16.0, bfieldfn_sol2);
+    MeshVectorField bfield1n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol1);
+    MeshVectorField bfield2n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol2);
 
     bfield.set_extrapolation(bfldextrpl);
     bfield1n.set_extrapolation(bfldextrpl);
@@ -233,12 +233,12 @@ void simu(int *argc, char ***argv)
     /*
     Параметры пучка, на входе в канал LEBT
     */
-    const int N_COUNT = 50000; // Число частиц
+    const int N_COUNT = 75000; // Число частиц
     // const double M = 1.0;              // Масса частицы H
     const double M = 1.0;
     const double Q = 1.0;    // Заряд частицы
-    const double E0 = 10000; // Энергия частицы, эВ
-    double R0 = 30e-3;       // Радиус пучка, м
+    const double E0 = 25000; // Энергия частицы, эВ
+    double R0 = 20e-3;       // Радиус пучка, м
     // 2.5 A - ток пучка, при котором достигается потенциал пучка в центре -> 30 В
     double I = 14e-3;                  // Ток пучка, А
     double J_R = I / (R0 * R0 * M_PI); // Плотность тока, А/м^2
@@ -246,7 +246,7 @@ void simu(int *argc, char ***argv)
     /*
     Кусок кода, отвечающий за добавление вторичных электронов в симуляцию
     */
-    double meanFreePath = 30;
+    double meanFreePath = 1.2;
     double elecMass = 1.0 / 1836.00;
     double dt = 1.0e-8;
     double simuTime = 2.0e-7;
@@ -258,9 +258,9 @@ void simu(int *argc, char ***argv)
     double elecZ;
     char picname[20];
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 3; i++)
     {
-        solver.solve(epot, scharge_ave);
+        solver.solve(epot, scharge);
         efield.recalculate();
 
         int iternum = 0;
@@ -299,18 +299,18 @@ void simu(int *argc, char ***argv)
         plot_epot(xArrayt, epArrayt, picname);
 
         // Уср сетки зарядов
-        if (i == 1)
-        {
-            scharge_ave = scharge;
-        }
-        else
-        {
-            uint32_t nodecnt = scharge.nodecount();
-            for (uint32_t b = 0; b < nodecnt; b++)
-            {
-                scharge_ave(b) = 0.5 * scharge(b) + 0.5 * scharge_ave(b);
-            }
-        }
+        // if (i == 1)
+        // {
+        //     scharge_ave = scharge;
+        // }
+        // else
+        // {
+        //     uint32_t nodecnt = scharge.nodecount();
+        //     for (uint32_t b = 0; b < nodecnt; b++)
+        //     {
+        //         scharge_ave(b) = 0.5 * scharge(b) + 0.5 * scharge_ave(b);
+        //     }
+        // }
     }
 
     // solver.solve(epot, scharge);
@@ -321,9 +321,9 @@ void simu(int *argc, char ***argv)
     Динамика вторичных частиц
     Делаем n количество итераций с заданным шагом
     */
-    int iter = 0;
-    while (false)
-    // for (int iter = 0; iter < 101; iter++)
+    //int iter = 0;
+    //while (false)
+     for (int iter = 0; iter < 101; iter++)
     {
         // Логи
         ibsimu.message(1) << "General cycle, iter:  " << iter << "\n";
@@ -365,7 +365,7 @@ void simu(int *argc, char ***argv)
             {
 
                 pdb.trajectory_point(time0, loc0, vel0, i, j);
-                double iQCurr = pdb.particle(i).IQ() / vel0.norm2() / 10000;
+                double iQCurr = pdb.particle(i).IQ() / vel0.norm2()/10000;
                 // double iQCurr = pdb.particle(i).IQ()/h/h/h;
                 double xCurr = loc0[0];
                 double yCurr = loc0[1];
@@ -405,9 +405,9 @@ void simu(int *argc, char ***argv)
         pdb_elec.clear_trajectories();
         while (currTime < dt * (iter + 1))
         {
-            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-11);
+            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-8);
             scharge_ele += scharge_ele_buff;
-            currTime += 1.0e-11;
+            currTime += 1.0e-7;
         }
 
         // /*

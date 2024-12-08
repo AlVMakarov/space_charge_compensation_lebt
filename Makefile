@@ -14,4 +14,4 @@ analysis: analysis.o
 	$(CC) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	$(RM) *.o simu analysis *~
+	$(RM) *.png *.o
