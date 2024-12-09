@@ -138,13 +138,13 @@ void simu(int *argc, char ***argv)
 {
     srand((int)time(0));
 
-    double h = 1e-3;
+    double h = 5e-4;
     Vec3D origo(-70e-3,
                 -70e-3,
                 0.e-3);
     double sizereq[3] = {140e-3,
                          140e-3,
-                         700e-3};
+                         300e-3};
     Int3D meshsize((int)floor(sizereq[0] / h) + 1,
                    (int)floor(sizereq[1] / h) + 1,
                    (int)floor(sizereq[2] / h) + 1);
@@ -182,27 +182,27 @@ void simu(int *argc, char ***argv)
                                     FIELD_EXTRAPOLATE, FIELD_EXTRAPOLATE,
                                     FIELD_ZERO, FIELD_ZERO};
 
-    double bfield_step = 0.001;
-    Int3D meshsize_bfield((int)floor(sizereq[0] / bfield_step) + 1,
-                          (int)floor(sizereq[1] / bfield_step) + 1,
-                          (int)floor(sizereq[2] / bfield_step) + 1);
+    // double bfield_step = 0.001;
+    // Int3D meshsize_bfield((int)floor(sizereq[0] / bfield_step) + 1,
+    //                       (int)floor(sizereq[1] / bfield_step) + 1,
+    //                       (int)floor(sizereq[2] / bfield_step) + 1);
 
-    MeshVectorField bfield(MODE_3D, fout, meshsize_bfield, origo, bfield_step);
-    MeshVectorField bfield1n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol1);
-    MeshVectorField bfield2n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol2);
+    // MeshVectorField bfield(MODE_3D, fout, meshsize_bfield, origo, bfield_step);
+    // MeshVectorField bfield1n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol1);
+    // MeshVectorField bfield2n(MODE_3D, fout, 1.0e-3, 16.0 / 16.0, bfieldfn_sol2);
 
-    bfield.set_extrapolation(bfldextrpl);
-    bfield1n.set_extrapolation(bfldextrpl);
-    bfield2n.set_extrapolation(bfldextrpl);
+    // bfield.set_extrapolation(bfldextrpl);
+    // bfield1n.set_extrapolation(bfldextrpl);
+    // bfield2n.set_extrapolation(bfldextrpl);
 
-    MeshVectorField bfield1(MODE_3D, fout, meshsize_bfield, origo, bfield_step, bfield1n);
-    MeshVectorField bfield2(MODE_3D, fout, meshsize_bfield, origo, bfield_step, bfield2n);
+    // MeshVectorField bfield1(MODE_3D, fout, meshsize_bfield, origo, bfield_step, bfield1n);
+    // MeshVectorField bfield2(MODE_3D, fout, meshsize_bfield, origo, bfield_step, bfield2n);
 
-    bfield += bfield1;
-    bfield += bfield2;
-    bfield1.clear();
-    bfield2.clear();
-    // MeshVectorField bfield;
+    // bfield += bfield1;
+    // bfield += bfield2;
+    // bfield1.clear();
+    // bfield2.clear();
+    MeshVectorField bfield;
 
     /*
     Инициализация сетки электрических полей
@@ -233,7 +233,7 @@ void simu(int *argc, char ***argv)
     /*
     Параметры пучка, на входе в канал LEBT
     */
-    const int N_COUNT = 75000; // Число частиц
+    const int N_COUNT = 25000; // Число частиц
     // const double M = 1.0;              // Масса частицы H
     const double M = 1.0;
     const double Q = 1.0;    // Заряд частицы
@@ -246,9 +246,9 @@ void simu(int *argc, char ***argv)
     /*
     Кусок кода, отвечающий за добавление вторичных электронов в симуляцию
     */
-    double meanFreePath = 1.2;
+    double meanFreePath = 1;
     double elecMass = 1.0 / 1836.00;
-    double dt = 1.0e-8;
+    double dt = 1.0e-7;
     double simuTime = 2.0e-7;
     double currTime = 0.0;
     double iTime = 0.0;
@@ -297,7 +297,7 @@ void simu(int *argc, char ***argv)
         // Построение графиков
         sprintf(picname, "phi_test_%d.png", i);
         plot_epot(xArrayt, epArrayt, picname);
-
+        
         // Уср сетки зарядов
         // if (i == 1)
         // {
@@ -344,7 +344,7 @@ void simu(int *argc, char ***argv)
 
         if (iter == 0)
         {
-            pdb.iterate_trajectories(scharge, efield_test, bfield);
+            pdb.iterate_trajectories(scharge, efield, bfield);
         }
         else
         {
@@ -357,16 +357,18 @@ void simu(int *argc, char ***argv)
             elecL = meanFreePath * a;
             int trajSize = pdb.traj_size(i); // Coun of i-th traj point
             elecZ = elecL;                   // elec path z
-            Vec3D loc0(0, 0, 0);
-            Vec3D vel0(0, 0, 0);
-            double time0;
+            Vec3D loc0(0, 0, 0), loc1(0, 0, 0);
+            Vec3D vel0(0, 0, 0), vel1(0, 0, 0);
+            double time0, time1;
 
-            for (int j = 0; j < trajSize; j++)
+            for (int j = 1; j < trajSize; j++)
             {
 
                 pdb.trajectory_point(time0, loc0, vel0, i, j);
-                double iQCurr = pdb.particle(i).IQ() / vel0.norm2()/10000;
-                // double iQCurr = pdb.particle(i).IQ()/h/h/h;
+                pdb.trajectory_point(time1, loc1, vel1, i, j-1);
+                double iQCurr = pdb.particle(i).IQ()*(time0-time1);
+                std::cout<<iQCurr<<"\n" ;               
+                //double iQCurr = 1.6e-19;
                 double xCurr = loc0[0];
                 double yCurr = loc0[1];
                 double zCurr = loc0[2];
@@ -374,18 +376,18 @@ void simu(int *argc, char ***argv)
                 while (elecZ < zCurr)
                 {
                     double el_energy = 15; // eV
-                    int dirX = ((double)(rand()) / RAND_MAX > 0.5) ? 1 : -1;
-                    int dirY = ((double)(rand()) / RAND_MAX > 0.5) ? 1 : -1;
-                    int dirZ = ((double)(rand()) / RAND_MAX > 0.5) ? 1 : -1;
-                    double xV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * dirX;
-                    double yV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * dirY;
-                    double zV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * dirZ;
+                    double cosphi = (-1. + 2.*(double)(rand()) / RAND_MAX);
+                    double sinphi = sqrt(1 - pow(cosphi,2));
+                    double costet = (-1. + 2.*(double)(rand()) / RAND_MAX);
+                    double xV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * cosphi;
+                    double yV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * sinphi;
+                    double zV = sqrt(2.0 * el_energy * CHARGE_E / (elecMass * MASS_U)) * costet;
 
                     // double iQCurr = scharge(Vec3D(xCurr, yCurr, zCurr))/1000;
                     // std::cout<<iQCurr<<" fgwegwe\n";
-                    // pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, xV, yCurr, yV, elecZ, zV));
+                    pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(timeCurr, xCurr, xV, yCurr, yV, elecZ, zV));
                     // pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, 0.0, yCurr, 0.0, elecZ, 0.0));
-                    pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, 0.0, yCurr, 0.0, elecZ, 0.0));
+                    //pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, 0.0, yCurr, 0.0, elecZ, 0.0));
 
                     a = (double)(rand()) / RAND_MAX;
                     elecL = meanFreePath * a;
@@ -405,9 +407,10 @@ void simu(int *argc, char ***argv)
         pdb_elec.clear_trajectories();
         while (currTime < dt * (iter + 1))
         {
-            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-8);
+            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-9);
             scharge_ele += scharge_ele_buff;
-            currTime += 1.0e-7;
+            currTime += 1.0e-9;
+            //std::cout<<"Done \n";
         }
 
         // /*
@@ -425,15 +428,16 @@ void simu(int *argc, char ***argv)
         sprintf(picname, "trajdens_i%d.png", iter);
         plot_trajectory_density(geom, pdb, epot, scharge, picname);
         // Суммирование SC
-        uint32_t nodecount = scharge.nodecount();
-        for (uint32_t b = 0; b < nodecount; b++)
-        {
-            scharge(b) = scharge(b) + scharge_ele(b);
-        }
+        // uint32_t nodecount = scharge.nodecount();
+        // for (uint32_t b = 0; b < nodecount; b++)
+        // {
+        //     scharge(b) = scharge(b) + scharge_ele(b);
+        // }
+        scharge += scharge_ele;
         plot_trajectory_density(geom, pdb, epot, scharge, "sum_pot.png");
         // Потенциал в z=0.3, phi(x)
         // Графики
-        double z0 = 0.1;
+        double z0 = 0.6;
         double y0 = 0;
         double x0 = origo[0];
         double x1 = x0 + sizereq[0];
