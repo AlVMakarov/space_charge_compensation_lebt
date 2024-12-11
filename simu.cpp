@@ -17,6 +17,7 @@
 #include "particledatabase.hpp"
 #include "particlediagplotter.hpp"
 #include "readascii.hpp"
+#include "scharge.hpp"
 #include <ctime>
 
 using namespace std;
@@ -233,7 +234,7 @@ void simu(int *argc, char ***argv)
     /*
     Параметры пучка, на входе в канал LEBT
     */
-    const int N_COUNT = 25000; // Число частиц
+    const int N_COUNT = 200; // Число частиц
     // const double M = 1.0;              // Масса частицы H
     const double M = 1.0;
     const double Q = 1.0;    // Заряд частицы
@@ -258,7 +259,7 @@ void simu(int *argc, char ***argv)
     double elecZ;
     char picname[20];
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
     {
         solver.solve(epot, scharge);
         efield.recalculate();
@@ -328,10 +329,10 @@ void simu(int *argc, char ***argv)
         // Логи
         ibsimu.message(1) << "General cycle, iter:  " << iter << "\n";
         ibsimu.message(1) << "-----------------------\n";
-
-        std::cout << "\n---ELec count: " << pdb_elec.size() << "--- \n";
         solver.solve(epot, scharge);
         efield.recalculate();
+        std::cout << "\n---ELec count: " << pdb_elec.size() << "--- \n";
+        
 
         pdb.clear();
         pdb.add_cylindrical_beam_with_energy(N_COUNT, J_R, Q, M,
@@ -366,7 +367,8 @@ void simu(int *argc, char ***argv)
 
                 pdb.trajectory_point(time0, loc0, vel0, i, j);
                 pdb.trajectory_point(time1, loc1, vel1, i, j-1);
-                double iQCurr = pdb.particle(i).IQ()*(time0-time1);
+                double iQCurr = pdb.particle(i).IQ()*1.0e-11;
+                //double iQCurr = pdb.particle(i).IQ();
                 std::cout<<iQCurr<<"\n" ;               
                 //double iQCurr = 1.6e-19;
                 double xCurr = loc0[0];
@@ -375,7 +377,7 @@ void simu(int *argc, char ***argv)
                 double timeCurr = iter * dt;
                 while (elecZ < zCurr)
                 {
-                    double el_energy = 15; // eV
+                    double el_energy = 0; // eV
                     double cosphi = (-1. + 2.*(double)(rand()) / RAND_MAX);
                     double sinphi = sqrt(1 - pow(cosphi,2));
                     double costet = (-1. + 2.*(double)(rand()) / RAND_MAX);
@@ -385,7 +387,7 @@ void simu(int *argc, char ***argv)
 
                     // double iQCurr = scharge(Vec3D(xCurr, yCurr, zCurr))/1000;
                     // std::cout<<iQCurr<<" fgwegwe\n";
-                    pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(timeCurr, xCurr, xV, yCurr, yV, elecZ, zV));
+                    pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0, xCurr, xV, yCurr, yV, elecZ, zV));
                     // pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, 0.0, yCurr, 0.0, elecZ, 0.0));
                     //pdb_elec.add_particle(iQCurr, -1.0, elecMass, ParticleP3D(0.0, xCurr, 0.0, yCurr, 0.0, elecZ, 0.0));
 
@@ -396,6 +398,8 @@ void simu(int *argc, char ***argv)
             }
         }
 
+        solver.solve(epot, scharge);
+        efield.recalculate();
         /*
         Динамика электронов
         */
@@ -404,14 +408,15 @@ void simu(int *argc, char ***argv)
         // pdb_elec.set_max_time(dt * (iter + 1));
         // pdb_elec.iterate_trajectories(scharge_ele, efield, bfield);
         scharge_ele.clear();
-        pdb_elec.clear_trajectories();
+        //pdb_elec.clear_trajectories();
         while (currTime < dt * (iter + 1))
         {
-            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-9);
+            pdb_elec.step_particles(scharge_ele_buff, efield, bfield, 1.0e-11);
             scharge_ele += scharge_ele_buff;
-            currTime += 1.0e-9;
+            currTime += 1.0e-11;
             //std::cout<<"Done \n";
         }
+        scharge_finalize_pic(scharge);
 
         // /*
         // Дебаг
@@ -425,8 +430,12 @@ void simu(int *argc, char ***argv)
         // Построение графиков
         sprintf(picname, "trajdens_e%d.png", iter);
         plot_trajectory_density(geom, pdb_elec, epot, scharge_ele, picname);
+        sprintf(picname, "traj_e%d.png", iter);
+        plot_trajectory(geom, pdb_elec, epot, picname);
         sprintf(picname, "trajdens_i%d.png", iter);
         plot_trajectory_density(geom, pdb, epot, scharge, picname);
+        sprintf(picname, "traj_i%d.png", iter);
+        plot_trajectory(geom, pdb, epot, picname);
         // Суммирование SC
         // uint32_t nodecount = scharge.nodecount();
         // for (uint32_t b = 0; b < nodecount; b++)
